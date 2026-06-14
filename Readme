@@ -1,0 +1,114 @@
+TITANIUM-4: Low-Latency Intrusion Detection via Early Benign Isolation and Hierarchical Attack Forensics
+     
+Authors: Muhammad Younas, Sadeeda*, Hoor ul Ain, Huzaifa Shahzad, Ihsan Ul Haq, Muhammad Farooq
+Affiliation: Department of Electrical Engineering, University of Engineering and Technology, Peshawar, Pakistan
+Dataset: CSE-CIC-IDS2018
+________________________________________
+Abstract
+TITANIUM-4 is a four-layer intrusion detection pipeline designed for inline deployment on hardware switches with 10-15 ms timing constraints. The system employs three-tier routing: a calibrated LightGBM binary gatekeeper (Layer 2) isolates benign traffic early (82.5% of flows exit after Layer 2), an eight-class multiclass forensics classifier (Layer 3) labels attack families, and an OC-SVM sentinel (Layer 4) detects zero-day threats without attack labels. End-to-end latency is 7.91 ms (p50), meeting hardware-switch budgets. Live evaluation on 11,138 DoS Hulk flows quantifies significant domain shift and demonstrates recovery via adaptive thresholding.
+________________________________________
+Architecture
+┌─────────────────────────────────────────────────────────────────┐
+│                        TITANIUM-4 Pipeline                       │
+├──────────┬──────────┬──────────────┬────────────────────────────┤
+│ Layer 1  │ Layer 2  │ Layer 3      │ Layer 4                    │
+│ Ingestion│ Gatekeeper│ Forensics   │ Sentinel                   │
+├──────────┼──────────┼──────────────┼────────────────────────────┤
+│ Robust   │ LightGBM │ LightGBM     │ OC-SVM (RBF)               │
+│ Scaler   │ Binary   │ 8-class      │ nu=0.01, gamma=scale       │
+│ 4.74 ms  │ 1.10 ms  │ 1.43 ms      │ 0.64 ms                    │
+│          │ F1=0.9999│ macro-F1=    │ AUC=0.8205                 │
+│          │ AUC=0.9999│ 0.9867      │ DR=45.06% @ 5% FPR         │
+└──────────┴──────────┴──────────────┴────────────────────────────┘
+     │            │              │                  │
+     └────────────┴──────────────┴──────────────────┘
+                    7.91 ms end-to-end
+Routing Logic
+Path	Condition	Flows	Latency
+Benign	L2 score < tau_B	82.5%	L1 + L2 + L4 = 4.74 ms
+Known Attack	L2 score >= tau_B AND L3 confidence >= tau_M	17.5%	L1 + L2 + L3 = 3.17 ms
+Uncertain	L2 score >= tau_B AND L3 confidence < tau_M	<0.1%	L1 + L2 + L4 = 4.74 ms
+________________________________________
+Key Results
+Benchmark (CSE-CIC-IDS2018, 1,176,820 flows)
+Component	Metric	Value
+L2 Gatekeeper	AUC	0.99997
+	F1	0.99987
+	FPR	0.00000
+L3 Forensics	Macro-F1 (test)	0.9867
+	Macro-F1 (validation)	0.9551
+	tau_M (confidence threshold)	0.999999
+L4 Sentinel	AUC	0.8205
+	Detection Rate (5% FPR)	45.06%
+	tau_U (95th percentile)	1.385 x 10^-6
+Live Test (DoS Hulk, 11,138 flows)
+Metric	Value
+Total flows	11,138
+Attack flows	5,810 (52.2%)
+Benign-routed flows	5,328 (47.8%)
+L2 detection rate	52.2%
+tau_B’ (adapted)	0.0001
+tau_U’ (adapted)	3000
+Sentinel recovery	516 flows (9.7%)
+Combined detection	56.9%
+Max live probability	0.0138 (vs. benchmark tau_B = 1.0)
+________________________________________
+Quick Start
+Requirements
+Python >= 3.9
+RAM >= 16 GB
+Installation
+git clone https://github.com/EngrMuhammadYounas/TITANIUM-4-IDS.git
+cd TITANIUM-4-IDS
+pip install -r requirements.txt
+Download CSE-CIC-IDS2018
+# Place CSV files in data/cse-cic-ids2018/
+# Dataset: https://www.unb.ca/cic/datasets/ids-2018.html
+Run Inference
+# Benchmark evaluation
+python src/IDSmodel.py --mode benchmark --input data/cse-cic-ids2018/ --models models/
+
+# Live traffic evaluation (PCAP)
+python src/livetest.py --pcap capture.pcap --models models/ --output results/live/
+________________________________________
+Repository Structure
+TITANIUM-4-IDS/
+|-- README.md                    # This file
+|-- LICENSE                      # MIT License
+|-- requirements.txt             # Python dependencies
+|-- .gitignore                   # Git exclusions
+|-- src/
+|   |-- IDSmodel.py             # Main inference pipeline
+|   |-- utils.py                # Preprocessing utilities
+|   |-- train_gatekeeper.py     # Layer 2 training
+|   |-- train_forensics.py      # Layer 3 training
+|   |-- train_sentinel.py       # Layer 4 training
+|   |-- livetest.py             # Live traffic evaluation
+|-- models/                      # Trained models (see Releases)
+|-- notebooks/
+|   |-- TITANIUM4_Training.ipynb
+|   |-- TITANIUM4_LiveTest.ipynb
+|-- data/                        # Dataset directory (user-provided)
+|-- results/                     # Output directory
+Trained Models
+Pre-trained models are available in Releases:
+Model	File	Size
+L2 Gatekeeper	l2_gatekeeper.pkl	~2 MB
+L3 Forensics	l3_forensics.pkl	~8 MB
+L4 Sentinel	l4_sentinel.pkl	~45 MB
+RobustScaler	scaler.pkl	~1 MB
+Isotonic Calibrator	isotonic_calibrator.pkl	~1 MB
+________________________________________
+Citation
+@article{younas2025titanium4,
+  title={TITANIUM-4: Low-Latency Intrusion Detection via Early Benign Isolation and Hierarchical Attack Forensics},
+  author={Younas, Muhammad and Sadeeda and Ain, Hoor ul and Shahzad, Huzaifa and Haq, Ihsan Ul and Farooq, Muhammad},
+  journal={International Journal of Intelligent Systems and Technologies},
+  year={2025}
+}
+________________________________________
+License
+This project is released under the MIT License. See LICENSE for details.
+________________________________________
+Contact
+For questions or issues, please open a GitHub issue.
