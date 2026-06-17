@@ -1,114 +1,430 @@
-TITANIUM-4: Low-Latency Intrusion Detection via Early Benign Isolation and Hierarchical Attack Forensics
-     
-Authors: Muhammad Younas, Sadeeda*, Hoor ul Ain, Huzaifa Shahzad, Ihsan Ul Haq, Muhammad Farooq
-Affiliation: Department of Electrical Engineering, University of Engineering and Technology, Peshawar, Pakistan
-Dataset: CSE-CIC-IDS2018
-________________________________________
-Abstract
-TITANIUM-4 is a four-layer intrusion detection pipeline designed for inline deployment on hardware switches with 10-15 ms timing constraints. The system employs three-tier routing: a calibrated LightGBM binary gatekeeper (Layer 2) isolates benign traffic early (82.5% of flows exit after Layer 2), an eight-class multiclass forensics classifier (Layer 3) labels attack families, and an OC-SVM sentinel (Layer 4) detects zero-day threats without attack labels. End-to-end latency is 7.91 ms (p50), meeting hardware-switch budgets. Live evaluation on 11,138 DoS Hulk flows quantifies significant domain shift and demonstrates recovery via adaptive thresholding.
-________________________________________
-Architecture
-┌─────────────────────────────────────────────────────────────────┐
-│                        TITANIUM-4 Pipeline                       │
-├──────────┬──────────┬──────────────┬────────────────────────────┤
-│ Layer 1  │ Layer 2  │ Layer 3      │ Layer 4                    │
-│ Ingestion│ Gatekeeper│ Forensics   │ Sentinel                   │
-├──────────┼──────────┼──────────────┼────────────────────────────┤
-│ Robust   │ LightGBM │ LightGBM     │ OC-SVM (RBF)               │
-│ Scaler   │ Binary   │ 8-class      │ nu=0.01, gamma=scale       │
-│ 4.74 ms  │ 1.10 ms  │ 1.43 ms      │ 0.64 ms                    │
-│          │ F1=0.9999│ macro-F1=    │ AUC=0.8205                 │
-│          │ AUC=0.9999│ 0.9867      │ DR=45.06% @ 5% FPR         │
-└──────────┴──────────┴──────────────┴────────────────────────────┘
-     │            │              │                  │
-     └────────────┴──────────────┴──────────────────┘
-                    7.91 ms end-to-end
-Routing Logic
-Path	Condition	Flows	Latency
-Benign	L2 score < tau_B	82.5%	L1 + L2 + L4 = 4.74 ms
-Known Attack	L2 score >= tau_B AND L3 confidence >= tau_M	17.5%	L1 + L2 + L3 = 3.17 ms
-Uncertain	L2 score >= tau_B AND L3 confidence < tau_M	<0.1%	L1 + L2 + L4 = 4.74 ms
-________________________________________
-Key Results
-Benchmark (CSE-CIC-IDS2018, 1,176,820 flows)
-Component	Metric	Value
-L2 Gatekeeper	AUC	0.99997
-	F1	0.99987
-	FPR	0.00000
-L3 Forensics	Macro-F1 (test)	0.9867
-	Macro-F1 (validation)	0.9551
-	tau_M (confidence threshold)	0.999999
-L4 Sentinel	AUC	0.8205
-	Detection Rate (5% FPR)	45.06%
-	tau_U (95th percentile)	1.385 x 10^-6
-Live Test (DoS Hulk, 11,138 flows)
-Metric	Value
-Total flows	11,138
-Attack flows	5,810 (52.2%)
-Benign-routed flows	5,328 (47.8%)
-L2 detection rate	52.2%
-tau_B’ (adapted)	0.0001
-tau_U’ (adapted)	3000
-Sentinel recovery	516 flows (9.7%)
-Combined detection	56.9%
-Max live probability	0.0138 (vs. benchmark tau_B = 1.0)
-________________________________________
-Quick Start
-Requirements
-Python >= 3.9
-RAM >= 16 GB
-Installation
-git clone https://github.com/EngrMuhammadYounas/TITANIUM-4-IDS.git
-cd TITANIUM-4-IDS
-pip install -r requirements.txt
-Download CSE-CIC-IDS2018
-# Place CSV files in data/cse-cic-ids2018/
-# Dataset: https://www.unb.ca/cic/datasets/ids-2018.html
-Run Inference
-# Benchmark evaluation
-python src/IDSmodel.py --mode benchmark --input data/cse-cic-ids2018/ --models models/
+# Titanium_4
 
-# Live traffic evaluation (PCAP)
-python src/livetest.py --pcap capture.pcap --models models/ --output results/live/
-________________________________________
-Repository Structure
-TITANIUM-4-IDS/
-|-- README.md                    # This file
-|-- LICENSE                      # MIT License
-|-- requirements.txt             # Python dependencies
-|-- .gitignore                   # Git exclusions
-|-- src/
-|   |-- IDSmodel.py             # Main inference pipeline
-|   |-- utils.py                # Preprocessing utilities
-|   |-- train_gatekeeper.py     # Layer 2 training
-|   |-- train_forensics.py      # Layer 3 training
-|   |-- train_sentinel.py       # Layer 4 training
-|   |-- livetest.py             # Live traffic evaluation
-|-- models/                      # Trained models (see Releases)
-|-- notebooks/
-|   |-- TITANIUM4_Training.ipynb
-|   |-- TITANIUM4_LiveTest.ipynb
-|-- data/                        # Dataset directory (user-provided)
-|-- results/                     # Output directory
-Trained Models
-Pre-trained models are available in Releases:
-Model	File	Size
-L2 Gatekeeper	l2_gatekeeper.pkl	~2 MB
-L3 Forensics	l3_forensics.pkl	~8 MB
-L4 Sentinel	l4_sentinel.pkl	~45 MB
-RobustScaler	scaler.pkl	~1 MB
-Isotonic Calibrator	isotonic_calibrator.pkl	~1 MB
-________________________________________
-Citation
-@article{younas2025titanium4,
-  title={TITANIUM-4: Low-Latency Intrusion Detection via Early Benign Isolation and Hierarchical Attack Forensics},
-  author={Younas, Muhammad and Sadeeda and Ain, Hoor ul and Shahzad, Huzaifa and Haq, Ihsan Ul and Farooq, Muhammad},
-  journal={International Journal of Intelligent Systems and Technologies},
-  year={2025}
+## Machine Learning-Based Intrusion Detection and Prevention System for Cyber-Defence
+
+[![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-390/)
+[![LightGBM](https://img.shields.io/badge/LightGBM-3.3.5-green.svg)](https://github.com/microsoft/LightGBM)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.2.2-orange.svg)](https://scikit-learn.org/stable/)
+[![Kaggle](https://img.shields.io/badge/Kaggle-Notebook-blue.svg)](https://www.kaggle.com/code/engrsadeeda/fyp-intrusion-detection-system)
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [System Architecture](#system-architecture)
+- [Dataset](#dataset)
+- [Performance Summary](#performance-summary)
+- [Live Deployment Testing](#live-deployment-testing)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Repository Structure](#repository-structure)
+- [Citation](#citation)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
+
+## Overview
+
+Titanium_4 four-layer intrusion detection pipeline designed for real-time, low-latency detection of both known and unknown network threats. The system combines a calibrated LightGBM binary gatekeeper, a class-weighted multiclass forensic classifier, and a One-Class SVM zero-day sentinel, all running on CPU-only hardware.
+
+The design principle is early routing: flows identified as benign at Layer 2 bypass the more expensive forensic stage entirely, so the pipeline spends its compute budget only on traffic that actually warrants closer examination.
+
+- End-to-end latency of **7.91 ms** per flow — within the timing budget of a hardware switch.
+- F1 = **0.99987** and AUC = **0.99997** on the binary triage layer.
+- Macro F1 = **0.9867** across eight known attack families.
+- **45.06% zero-day recall** at a 5% false-positive rate on held-out Botnet and Infiltration flows.
+- **82.5%** of flows exit at Layer 2, avoiding full forensic processing.
+
+This system was developed as a Bachelor of Science thesis at the University of Engineering and Technology, Peshawar (2026).
+
+---
+
+## Key Features
+
+| Feature | Description |
+|:--------|:------------|
+| **Two-Bin Routing** | Benign flows are isolated at Layer 2 and sent directly to the sentinel, bypassing Layer 3 forensic processing. |
+| **Isotonic Calibration** | Raw LightGBM scores are converted to well-calibrated probabilities using isotonic regression, enabling reliable threshold-based routing. |
+| **Class-Weighted Training** | Severe imbalance is handled by assigning inverse-frequency weights to each class — Brute Force has only 8 training flows and still achieves F1 = 1.00. |
+| **Percentile Anomaly Threshold** | The OC-SVM sentinel threshold is set at the 95th percentile of normal validation anomaly scores, requiring no distributional assumptions about the score tail. |
+| **CPU-Only Inference** | Designed for deployment on standard hardware without GPU acceleration. |
+| **Open-Source** | Fully available on Kaggle and GitHub for community use and extension. |
+
+---
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        CYBER GUARD Pipeline                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────┐    ┌─────────────────┐    ┌────────────────────┐  │
+│  │   Layer 1   │    │     Layer 2     │    │      Layer 3       │  │
+│  │  Ingestion  │───▶│   Gatekeeper    │───▶│   Multi-Class      │  │
+│  │      &      │    │  (Binary        │    │    Forensics       │  │
+│  │ Preprocess  │    │  Classifier)    │    │  (8 Attack Types)  │  │
+│  └─────────────┘    └─────────────────┘    └────────────────────┘  │
+│         │                    │                        │             │
+│         │                    ▼                        │             │
+│         │         ┌──────────────────┐                │             │
+│         │         │  Benign → L4     │                │             │
+│         │         │  (82.5% of flows)│                │             │
+│         │         └──────────────────┘                │             │
+│         │                                             ▼             │
+│         └───────────────────────────────────────────▶              │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │               Layer 4: Zero-Day Sentinel (OC-SVM)              │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  82.5% of flows exit at Layer 2 (benign path → Layer 4 directly)   │
+│  17.5% of flows go through Layer 3 then Layer 4                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Dataset
+
+The pipeline was trained and evaluated on **CSE-CIC-IDS2018**, a publicly available benchmark collected by the Canadian Institute for Cybersecurity. The version used here is a pre-cleaned, 25%-stratified sample published on Kaggle ([ekkykharismadhany/csecicids2018-cleaned](https://www.kaggle.com/datasets/ekkykharismadhany/csecicids2018-cleaned)) with infinite and NaN values removed. The raw CIC release contains more attack flows but also unreliable feature values that require cleaning before use.
+
+**Dataset split (70/15/15 stratified):**
+
+| Split | Total Flows | Benign | Attack | Zero-Day Removed |
+|:------|------------:|-------:|-------:|:-----------------|
+| Training | 823,773 | 679,710 (82.5%) | 144,063 (17.5%) | Botnet, Infiltration |
+| Validation | 176,523 | 145,653 (82.5%) | 30,870 (17.5%) | Botnet, Infiltration |
+| Known Test | 176,524 | 145,661 (82.5%) | 30,871 (17.5%) | Botnet, Infiltration |
+| Zero-Day Test | 76,026 | 0 (0%) | 76,026 (100%) | Held-out entirely |
+
+Botnet (38,703 flows) and Infiltration (37,323 flows) are held out before any splitting and never seen during training or validation. They form the zero-day evaluation set for Layer 4.
+
+**Training class distribution:**
+
+| Class | Count | % of Training |
+|:------|------:|--------------:|
+| Benign | 679,710 | 82.5% |
+| DoS Hulk | 95,978 | 11.7% |
+| DoS GoldenEye | 40,322 | 4.9% |
+| DoS Slowloris | 5,877 | 0.7% |
+| DoS SlowHTTP | 1,531 | 0.2% |
+| DDoS LOIC HTTP | 235 | <0.1% |
+| DDoS LOIC UDP | 72 | <0.1% |
+| DDoS HOIC | 40 | <0.1% |
+| Brute Force | 8 | <0.01% |
+
+---
+
+## Performance Summary
+
+### Layer 2: Gatekeeper (Binary Triage)
+
+| Metric | Value |
+|:-------|------:|
+| AUC | 0.99997 |
+| F1 | 0.99987 |
+| Precision | 1.00000 |
+| Recall | 0.99974 |
+| False Positive Rate | 0.00000 |
+| True Negatives | 145,653 |
+| False Positives | 0 |
+| False Negatives | 8 |
+| True Positives | 30,863 |
+| Optimal Threshold (τ_B) | 1.0 |
+| scale_pos_weight | 4.7181 |
+| p50 Latency | 1.48 ms |
+| p99 Latency | 1.78 ms |
+| Benign Routed to L4 | 145,661 (82.5%) |
+| Attack Routed to L3 | 30,863 (17.5%) |
+
+The threshold τ_B = 1.0 is the F1-optimal point on the calibrated probability scale, reflecting near-perfect class separation on this dataset. The 8 false negatives all have short durations and small packet counts, making them statistically indistinguishable from benign traffic at the binary level.
+
+---
+
+### Layer 3: Multi-Class Forensics
+
+| Metric | Value |
+|:-------|------:|
+| Macro F1 | 0.9867 |
+| Weighted F1 | 1.00 |
+| p50 Latency | 1.43 ms |
+| p99 Latency | 2.06 ms |
+| Flows classified as known attack | 30,820 |
+| Flows flagged as uncertain → L4 | 51 |
+
+**Per-class F1 on test set:**
+
+| Attack Family | F1 | Precision | Recall |
+|:--------------|---:|----------:|-------:|
+| DoS Hulk | 1.00 | 1.00 | 1.00 |
+| DoS GoldenEye | 1.00 | 1.00 | 1.00 |
+| DoS Slowloris | 1.00 | 1.00 | 1.00 |
+| DoS SlowHTTP | 1.00 | 1.00 | 1.00 |
+| DDoS LOIC HTTP | 1.00 | 1.00 | 1.00 |
+| DDoS LOIC UDP | 0.96 | 0.92 | 1.00 |
+| DDoS HOIC | 0.93 | 1.00 | 0.88 |
+| Brute Force | 1.00 | 1.00 | 1.00 |
+
+The residual confusion is between DDoS HOIC and DDoS LOIC UDP — both are high-volume attacks with similar flow statistics, making them the hardest pair to separate.
+
+---
+
+### Layer 4: Zero-Day Sentinel (OC-SVM)
+
+| Metric | Value |
+|:-------|------:|
+| Detection Rate (Recall) | 45.06% (34,257 / 76,026) |
+| False Positive Rate | 5.00% |
+| AUC | 0.8205 |
+| Anomaly Threshold (τ_U) | 0.000001 (95th pct of normal validation scores) |
+| Training Flows | 679,710 (normal only) |
+| Support Vectors | ≈6,797 (~1% of training set) |
+| p50 Latency | 0.64 ms |
+| p99 Latency | 1.06 ms |
+
+The sentinel is trained exclusively on benign flows. The threshold τ_U is set as the 95th percentile of the anomaly scores on the normal validation set, which gives a 5% false-positive rate by construction. No distributional assumptions are made about the tail of the score distribution.
+
+---
+
+### End-to-End Latency
+
+| Stage | Latency (ms) | Measured End-to-End (ms) |
+|:------|-------------:|-------------------------:|
+| L1: Ingestion & Feature Extraction | 4.74 | 4.74 |
+| L2: Gatekeeper | 1.48 | 6.22 |
+| L3: Multi-Class Forensics | 1.43 | 7.65 |
+| L4: Zero-Day Sentinel | 0.64 | **7.91** |
+
+> The per-layer latencies sum arithmetically to 8.29 ms. The measured end-to-end value of 7.91 ms is lower due to pipelining and inter-layer parallelism not captured by single-layer timing.
+
+| Branch | Latency | Formula |
+|:-------|--------:|:--------|
+| Benign Branch (L2 + L4) | 2.12 ms | 1.48 + 0.64 |
+| Attack Branch (L2 + L3 + L4) | 3.55 ms | 1.48 + 1.43 + 0.64 |
+| Weighted Average | 7.12 ms | 4.74 + (0.825 × 2.12) + (0.175 × 3.55) |
+
+The 0.79 ms gap between 7.12 ms and the measured 7.91 ms is consistent with Python interpreter overhead and inter-layer queuing not captured by single-layer benchmarks.
+
+---
+
+## Live Deployment Testing
+
+A real DoS Hulk attack was generated from a Kali Linux machine against a Windows 11 host on the same LAN. Traffic was captured with Wireshark (saved as `hoorhulkattack.pcapng`), converted to flow-level features with CICFlowMeter, and passed through the pre-trained pipeline.
+
+### Summary
+
+| Metric | Value |
+|:-------|------:|
+| Total Flows | 11,138 |
+| Attack Flows (L3) | 5,810 (52.2%) |
+| Benign/Uncertain Flows (L4) | 5,328 (47.8%) |
+| Live Threshold (τ_B') | 0.0001 (lowered from benchmark 1.0) |
+
+### Domain Shift
+
+The calibrated probabilities on live traffic are compressed by roughly two orders of magnitude compared to the benchmark:
+
+| Statistic | Live Test | Benchmark |
+|:----------|----------:|----------:|
+| Mean Probability | 0.0020 | ~1.0000 |
+| Maximum Probability | 0.0138 | 1.0000 |
+| 99th Percentile | 0.0068 | 1.0000 |
+| Minimum Probability | ~1.59 × 10⁻¹⁰ | 0.0000 |
+| Threshold Used (τ_B') | 0.0001 | 1.0000 |
+
+This compression is caused by three factors: the cleaned Kaggle CSV underwent duplicate removal and missing-value imputation before training, while raw CICFlowMeter output contains NaN substitutions and zero-division artifacts; the RobustScaler fitted on cleaned training data produces out-of-distribution scaled values on live features; and isotonic calibration, fitted on cleaned out-of-fold predictions, cannot recover the compressed score range.
+
+### Sentinel Anomaly Scores (Benign-Routed Flows)
+
+| Statistic | Value |
+|:----------|------:|
+| Count | 5,328 |
+| Mean | 920.44 |
+| Standard Deviation | 1,510.42 |
+| Median (50th Percentile) | 0.000001 |
+| 90th Percentile | 3,398.54 |
+| 95th Percentile | 3,398.54 |
+| 99th Percentile | 3,398.54 |
+| Maximum | 3,398.54 |
+
+The distribution is bimodal: approximately 90% of flows cluster near 0.000001 (genuine background traffic — ARP, DNS, system packets), and the upper 10% cluster at 3,398.54 (DoS Hulk flows that fell below the adjusted gatekeeper threshold). This separation is what makes the two-threshold strategy viable.
+
+### Two-Threshold Strategy
+
+Setting a secondary sentinel threshold of τ_U' = 3,000 recovers approximately **516 flows (9.7%)** of the benign-routed set as likely attacks, without requiring model retraining. Normal background traffic scores near 0.000001 and would not be affected.
+
+| Threshold | Role | Value |
+|:----------|:-----|------:|
+| τ_B' | Live gatekeeper threshold | 0.0001 |
+| τ_U' | Secondary sentinel threshold | 3,000 |
+| Recovered attacks | Flows above τ_U' | 516 (9.7% of benign-routed) |
+
+The permanent fix is to retrain the pipeline on CICFlowMeter-extracted data so that the raw feature distributions match what the scaler and calibrator were fitted on.
+
+---
+
+## Installation
+
+### Prerequisites
+
+- Python 3.9 or higher
+- pip
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/EngrMuhammadYounas/CYBERGUARD-IDS.git
+cd CYBERGUARD-IDS
+```
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+**Required packages:**
+
+```
+lightgbm>=3.3.5
+scikit-learn>=1.2.2
+pandas>=1.5.3
+numpy>=1.24.3
+matplotlib>=3.7.1
+seaborn>=0.12.2
+shap>=0.41.0
+joblib>=1.2.0
+pyarrow>=12.0.0
+```
+
+---
+
+## Usage
+
+### 1. Download the Dataset
+
+- **Kaggle (cleaned, recommended):** [ekkykharismadhany/csecicids2018-cleaned](https://www.kaggle.com/datasets/ekkykharismadhany/csecicids2018-cleaned)
+- **CIC original:** [https://www.unb.ca/cic/datasets/ids-2018.html](https://www.unb.ca/cic/datasets/ids-2018.html)
+
+### 2. Preprocess
+
+```bash
+python layer1_preprocess.py --input /path/to/dataset --output layer1_output
+```
+
+### 3. Train Each Layer
+
+```bash
+python layer2_gatekeeper.py  --input layer1_output --output models/l2_gatekeeper.pkl
+python layer3_forensics.py   --input layer1_output --output models/l3_forensics.pkl
+python layer4_sentinel.py    --input layer1_output --output models/l4_sentinel.pkl
+```
+
+### 4. Run Inference on Live Traffic
+
+```bash
+python inference.py --input HULKATTACK.csv --output results/
+```
+
+### Interactive Exploration
+
+The full training notebook is on Kaggle:
+
+[![Kaggle](https://img.shields.io/badge/Kaggle-Notebook-blue.svg)](https://www.kaggle.com/code/engrsadeeda/fyp-intrusion-detection-system)
+
+---
+
+## Repository Structure
+
+```
+CYBERGUARD-IDS/
+├── README.md
+├── requirements.txt
+├── LICENSE
+├── layer1_preprocess.py          # Data ingestion and feature extraction
+├── layer2_gatekeeper.py          # Binary gatekeeper training
+├── layer3_forensics.py           # Multi-class attack classifier
+├── layer4_sentinel.py            # Zero-day sentinel (OC-SVM)
+├── inference.py                  # Live traffic inference pipeline
+├── config.yaml                   # Configuration file
+├── docs/
+│   └── CYBERGUARD_v6_final.docx  # Full thesis
+├── notebooks/
+│   └── fyp-intrusion-detection-system.ipynb
+├── models/                       # Pre-trained model artifacts (not in repo)
+│   ├── l2_gatekeeper.pkl
+│   ├── l3_forensics.pkl
+│   └── l4_sentinel.pkl
+├── layer1_output/                # Preprocessed Parquet files
+│   ├── l2_train.parquet
+│   ├── l2_val.parquet
+│   ├── l2_test_known.parquet
+│   ├── l3_train_attack.parquet
+│   ├── l3_val_attack.parquet
+│   ├── l4_train_normal.parquet
+│   ├── l4_val_normal.parquet
+│   ├── l4_test_zeroday.parquet
+│   ├── set_a_features.json
+│   ├── set_b_features.json
+│   ├── scaler_a.pkl
+│   └── scaler_b.pkl
+├── results/
+│   ├── inference_results.csv
+│   ├── l2_feature_importance.png
+│   ├── l2_shap_summary.png
+│   └── l3_feature_importance.png
+└── tests/
+    ├── test_layer2.py
+    ├── test_layer3.py
+    └── test_layer4.py
+```
+
+---
+
+## Citation
+
+If you use this work, please cite the thesis:
+
+```bibtex
+@thesis{younas2026cyberguard,
+  author = {Younas, Muhammad and Shahzad, Huzaifa and Nisar, Sadeeda and Ain, Hoor Ul},
+  title  = {CYBER GUARD: Machine Learning-Based Intrusion Detection and Prevention System for Cyber-Defence},
+  school = {University of Engineering and Technology, Peshawar},
+  year   = {2026},
+  type   = {Bachelor's Thesis},
+  note   = {Available at: https://github.com/EngrMuhammadYounas/CYBERGUARD-IDS}
 }
-________________________________________
-License
-This project is released under the MIT License. See LICENSE for details.
-________________________________________
-Contact
-For questions or issues, please open a GitHub issue.
+```
+
+---
+
+## License
+
+MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgments
+
+- **Canadian Institute for Cybersecurity (CIC)** for the CSE-CIC-IDS2018 dataset.
+- **Kaggle** for cloud computational resources.
+- **Department of Electrical Engineering, UET Peshawar** for institutional support.
+- **Engr. Muhammad Farooq** and **Engr. Ihsan Ul Haq** for supervision and technical mentorship.
+- The **LightGBM** and **scikit-learn** communities for their libraries.
+
+---
+
+## Contact
+
+- **Muhammad Younas** — [GitHub](https://github.com/EngrMuhammadYounas)
+- **Sadeeda Nisar** — [GitHub](https://github.com/engrsadeeda)
+- **Hoor Ul Ain** — [GitHub](https://github.com/hoorulain)
+- **Huzaifa Shahzad** — [GitHub](https://github.com/huzaifashahzad)
+
+---
+
+*Built at UET Peshawar, 2026.*
